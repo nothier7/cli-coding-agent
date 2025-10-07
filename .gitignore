@@ -1,0 +1,10 @@
+@"
+__pycache__/
+*.pyc
+.venv/
+.env
+.agent/session.json
+.agent/policy.json
+.DS_Store
+*.swp
+"@ | Out-File -Encoding UTF8 .gitignore
