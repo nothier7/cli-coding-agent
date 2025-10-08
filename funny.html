@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Funny Page of Chuckles</title>
+  <style>
+    body {
+      font-family: "Comic Sans MS", "Comic Neue", cursive;
+      background: linear-gradient(135deg, #ffecd2, #fcb69f);
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      margin-top: 3rem;
+      font-size: 4rem;
+      text-shadow: 3px 3px #fff, -3px -3px #ffe0b2;
+      animation: wiggle 2s infinite ease-in-out;
+    }
+
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(-2deg); }
+      50% { transform: rotate(2deg); }
+    }
+
+    .joke-card {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 20px;
+      padding: 2rem;
+      margin: 1rem;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+      max-width: 600px;
+      text-align: center;
+    }
+
+    button {
+      background: #ff6f61;
+      border: none;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      margin: 1rem;
+      border-radius: 999px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 10px 20px rgba(255, 111, 97, 0.3);
+    }
+
+    .giggle-meter {
+      margin-top: 2rem;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .giggle-meter span {
+      font-weight: bold;
+      font-size: 2rem;
+    }
+
+    .laugh-track {
+      margin-top: 3rem;
+      font-style: italic;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <h1>The LOL Lounge</h1>
+
+  <div class="joke-card">
+    <h2>Dad Joke of the Moment</h2>
+    <p id="joke">Loading giggles...</p>
+    <button id="newJokeBtn">Tell me another!</button>
+  </div>
+
+  <div class="giggle-meter">
+    Giggle Meter: <span id="meter">0</span> 😂
+    <button id="giggleBtn">Giggle Boost</button>
+  </div>
+
+  <div class="joke-card">
+    <h2>Ridiculous Fact</h2>
+    <p>
+      Honey never spoils. Archaeologists have tasted 3,000-year-old honey.
+      Imagine being that intern.
+    </p>
+  </div>
+
+  <p class="laugh-track">
+    If you laugh hard enough, a secret disco ball might drop from the ceiling.
+  </p>
+
+  <script>
+    const jokes = [
+      "Why did the scarecrow win an award? He was outstanding in his field!",
+      "I would tell you a construction pun, but I'm still working on it.",
+      "Why don't scientists trust atoms? Because they make up everything!",
+      "What do you call fake spaghetti? An impasta!",
+      "Why did the math book look sad? Because it had too many problems.",
+      "I used to play piano by ear, but now I use my hands.",
+      "What do you call cheese that isn't yours? Nacho cheese!"
+    ];
+
+    const jokeElement = document.getElementById("joke");
+    const meterElement = document.getElementById("meter");
+    let meterValue = 0;
+
+    function showRandomJoke() {
+      const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
+      jokeElement.textContent = randomJoke;
+    }
+
+    document.getElementById("newJokeBtn").addEventListener("click", showRandomJoke);
+
+    document.getElementById("giggleBtn").addEventListener("click", () => {
+      meterValue += Math.floor(Math.random() * 7) + 1;
+      meterElement.textContent = meterValue.toString();
+    });
+
+    // Initialize with a joke
+    showRandomJoke();
+  </script>
+</body>
+</html>
