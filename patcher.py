@@ -11,47 +11,44 @@ SYNTH_SYSTEM = (
 def synthesize_new_contents(path: str, original: str, instructions: str) -> Optional[str]:
     """
     Ask the model to apply 'instructions' to 'original' and return full new file content (string).
-    Returns None if it couldn't produce anything usable.
+    Returns None if nothing usable is produced.
     """
-    msgs = [
-        {"role": "system", "content": SYNTH_SYSTEM},
-        {"role": "user", "content": f"File path: {path}\n\n--- ORIGINAL FILE START ---\n{original}\n--- ORIGINAL FILE END ---\n\nINSTRUCTIONS:\n{instructions}"},
+    def part(role: str, text: str):
+        # Responses API uses content parts, not Chat 'messages'
+        return {"role": role, "content": [{"type": "input_text", "text": text}]}
+
+    input_msgs = [
+        part("system", SYNTH_SYSTEM),
+        part(
+            "user",
+            f"File path: {path}\n\n--- ORIGINAL FILE START ---\n{original}\n--- ORIGINAL FILE END ---\n\nINSTRUCTIONS:\n{instructions}",
+        ),
     ]
 
     resp = client.responses.create(
         model=MODEL,
-        messages=msgs,
+        input=input_msgs,   # <-- IMPORTANT: use 'input', not 'messages'
+        # no temperature here per your note
     )
 
-    # Responses API: prefer output_text when available; else concatenate text parts
-    text = ""
-    try:
-        # new SDKs often expose .output_text
-        text = getattr(resp, "output_text", "") or ""
-    except Exception:
-        pass
+    # Prefer .output_text if available
+    text = getattr(resp, "output_text", "") or ""
 
-    if not text:
-        # Fallback to walk output list
-        try:
-            if hasattr(resp, "output") and isinstance(resp.output, list):
-                parts = []
-                for item in resp.output:
-                    for frag in getattr(item, "content", []) or []:
-                        if isinstance(frag, dict) and frag.get("type") == "output_text":
-                            parts.append(frag.get("text", ""))
-                text = "".join(parts)
-        except Exception:
-            pass
+    if not text and hasattr(resp, "output") and isinstance(resp.output, list):
+        parts = []
+        for item in resp.output:
+            for frag in getattr(item, "content", []) or []:
+                if isinstance(frag, dict) and frag.get("type") == "output_text":
+                    parts.append(frag.get("text", ""))
+        text = "".join(parts)
 
-    text = text.strip()
+    text = (text or "").strip()
     if not text:
         return None
 
-    # If the model returned code fences, strip them defensively
+    # Strip accidental code fences
     if text.startswith("```"):
         lines = text.splitlines()
-        # drop first and last fence lines if present
         if lines and lines[0].startswith("```"):
             lines = lines[1:]
         if lines and lines[-1].startswith("```"):

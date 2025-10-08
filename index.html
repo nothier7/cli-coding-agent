@@ -48,12 +48,14 @@
   <div class="buttons">
     <button id="decrement">Decrease</button>
     <button id="increment">Increase</button>
+    <button id="multiply">Multiply</button>
   </div>
 
   <script>
     const counterDisplay = document.getElementById('counter');
     const incrementButton = document.getElementById('increment');
     const decrementButton = document.getElementById('decrement');
+    const multiplyButton = document.getElementById('multiply');
 
     let count = 0;
 
@@ -68,6 +70,11 @@
 
     decrementButton.addEventListener('click', () => {
       count -= 1;
+      updateDisplay();
+    });
+
+    multiplyButton.addEventListener('click', () => {
+      count *= 2;
       updateDisplay();
     });
   </script>
