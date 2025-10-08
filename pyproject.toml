@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cherno"
+version = "0.1.0"
+description = "Natural-language coding agent CLI (Cherno) with diff previews, git-backed writes, and sandboxed execution."
+requires-python = ">=3.10"
+dependencies = [
+  "openai",
+  "python-dotenv",
+  "pydantic",
+  "rich",
+  "prompt_toolkit>=3.0.0",
+]
+readme = "README.md"
+
+[project.scripts]
+cherno = "cherno.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["cherno"]

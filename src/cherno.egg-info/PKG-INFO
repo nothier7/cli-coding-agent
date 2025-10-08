@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: cherno
+Version: 0.1.0
+Summary: Natural-language coding agent CLI (Cherno) with diff previews, git-backed writes, and sandboxed execution.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: openai
+Requires-Dist: python-dotenv
+Requires-Dist: pydantic
+Requires-Dist: rich
+Requires-Dist: prompt_toolkit>=3.0.0
+
+# CLI Coding Agent
+
+This project is a command line assistant that turns natural‑language requests into concrete edits inside your repository. It uses OpenAI's Responses API to interpret a request, plans the work it should perform, previews the resulting changes, and only applies them after you confirm.
+
+## Quick Start
+- Install Python 3.10+ and create a virtual environment if you prefer.
+- Install dependencies: `pip install openai python-dotenv rich`.
+- Provide your OpenAI credentials. Set `OPENAI_API_KEY` (and optionally `MODEL`) in the shell or a `.env` file at the project root. `MODEL` defaults to `gpt-5-codex`.
+- Run the agent with a natural-language instruction, for example:
+  ```
+  python main.py "Add unit tests for planner.plan_from_intent"
+  ```
+
+The CLI prints each phase so you can follow along:
+1. **Intent parsing** – sends the conversation history and your latest request to the model and validates the structured intent that comes back.
+2. **Planning & synthesis** – turns the intent into concrete steps (read files, synthesize a patch, show a diff, run a command).
+3. **Confirmation & execution** – shows the diff, then applies the change and commits if you approve. Planned commands prompt you before execution.
+
+If the repository is not already initialized, the tool will run `git init` and make an initial commit automatically so follow-up edits can be committed.
+
+## Architecture Overview
+- `main.py` orchestrates the run: loads chat memory, calls the LLM, prints the plan, manages confirmation, and writes files or runs commands.
+- `llm.py` loads environment variables (via `python-dotenv`) and creates the OpenAI client.
+- `intents.py` defines the structured intent schema (`edit_file`, `create_file`, `run_command`) and validates payloads returned by the model.
+- `planner.py` converts an intent into a sequence of step dictionaries that the CLI executes.
+- `fs_ops.py` handles safe file reads/writes and diff generation.
+- `patcher.py` asks the model to apply instructions to an entire file and returns the synthesized file content.
+- `memory.py` persists the ongoing conversation in `.agent/session.json` so previous prompts are available the next time you run the CLI.
+- `sandbox.py` chooses a sandbox provider and instantiates it. The default is a local process runner; an E2B integration is also provided.
+- `providers/local_sandbox.py` executes allowlisted commands locally under a configurable timeout.
+- `providers/e2b_sandbox.py` wraps the E2B cloud sandbox (requires `E2B_API_KEY`).
+- `executor.py` loads the command policy (`.agent/policy.json`), enforces the allowlist, and runs commands with subprocess.
+- `git_ops.py` performs the minimal git operations: initializing a repo, adding files, committing, or rolling back the last commit.
+
+Supporting files in `.agent/` hold runtime configuration:
+- `policy.json` – command allowlist and timeout. It is created on first run; edit it if you need to authorize additional binaries.
+- `sandbox.json` – chooses `local` or `e2b`. The file is bootstrapped automatically when missing.
+
+## Usage Guide
+- **Create a file** – describe the new file in plain language (`"Create a CONTRIBUTING.md that..."`). The plan will preview the file before writing.
+- **Edit a file** – mention the file path and instructions (`"Update planner.py so show_diff runs before write_file"`). The agent reads the file, synthesizes an updated version, shows the diff, and waits for approval.
+- **Run a command** – request it explicitly (`"Run tests with pytest"`). The command must exist in the allowlist; otherwise the agent stops and reports the restriction.
+- **Iterative sessions** – the conversation history lets you run follow-up prompts without restating context. Delete `.agent/session.json` if you want a clean slate.
+
+Every time you approve a change, the agent writes the file and commits it with a message like `feat(agent): update <path>`. You can amend commits afterwards if you want custom messages.
+
+## Extending the Tool
+- Update `intents.py` and `planner.py` if you introduce new intent types.
+- Expand `.agent/policy.json` to approve additional commands or tighten timeouts.
+- Add new sandbox providers under `providers/` and switch by editing `.agent/sandbox.json`.
+- Enhance `patcher.py` or `fs_ops.py` if you need different transformation strategies (for example, operating on diffs instead of whole files).
+
+## Troubleshooting
+- **Missing dependencies** – install the required packages listed above. If you change the project structure, consider adding a `requirements.txt`.
+- **Command blocked** – add the binary name to the `allowlist` in `.agent/policy.json` and rerun.
+- **E2B provider errors** – ensure `E2B_API_KEY` is set and the `e2b` (or `e2b_code_interpreter`) package is installed.
+- **Stale memory** – delete `.agent/session.json` to forget previous conversations.
+
+With these pieces in place, you can steer the coding agent entirely through natural language and stay in control of every change it proposes.

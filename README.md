@@ -1,59 +1,81 @@
-# CLI Coding Agent
+# Cherno · CLI Coding Agent
 
-This project is a command line assistant that turns natural‑language requests into concrete edits inside your repository. It uses OpenAI's Responses API to interpret a request, plans the work it should perform, previews the resulting changes, and only applies them after you confirm.
+Cherno is a command line assistant that turns natural-language requests into concrete edits inside your workspace. It talks to OpenAI's Responses API, plans the changes it should make, shows you the resulting diff, and only writes to disk (and Git) after you confirm.
 
 ## Quick Start
-- Install Python 3.10+ and create a virtual environment if you prefer.
-- Install dependencies: `pip install openai python-dotenv rich`.
-- Provide your OpenAI credentials. Set `OPENAI_API_KEY` (and optionally `MODEL`) in the shell or a `.env` file at the project root. `MODEL` defaults to `gpt-5-codex`.
-- Run the agent with a natural-language instruction, for example:
+- Install Python 3.10+ and create a virtual environment if desired.
+- Install dependencies and the CLI in editable mode:
+  ```
+  pip install -e .
+  ```
+- Provide credentials. Set `OPENAI_API_KEY` (and optionally `MODEL`) in your shell or in a `.env` file at the project root. `MODEL` defaults to `gpt-5-codex`.
+- Launch the interactive REPL:
+  ```
+  cherno
+  ```
+- Or run a one-off instruction without the REPL:
   ```
   python main.py "Add unit tests for planner.plan_from_intent"
   ```
 
-The CLI prints each phase so you can follow along:
-1. **Intent parsing** – sends the conversation history and your latest request to the model and validates the structured intent that comes back.
-2. **Planning & synthesis** – turns the intent into concrete steps (read files, synthesize a patch, show a diff, run a command).
-3. **Confirmation & execution** – shows the diff, then applies the change and commits if you approve. Planned commands prompt you before execution.
+## What Happens During a Run
+1. **Intent parsing** - Cherno sends the conversation history plus your latest request to the model and validates the structured intent it gets back.
+2. **Planning & synthesis** - the intent is expanded into concrete steps (read files, synthesize a patch, show a diff, run a command).
+3. **Confirmation & execution** - you preview the diff before approving. Once confirmed, Cherno writes the file, commits the change, and optionally runs planned commands.
 
-If the repository is not already initialized, the tool will run `git init` and make an initial commit automatically so follow-up edits can be committed.
+If the repository is not already initialized, Cherno runs `git init` and creates an initial commit so subsequent writes can be captured.
+
+## REPL Controls
+- `:help` - show all commands.
+- `:dry on|off` - toggle dry-run mode (synthesizes changes but skips writes and commits).
+- `:debug on|off` - print the raw model response for debugging.
+- `:rollback` - revert the most recent commit via `git reset --hard HEAD~1`.
+- `:clear` - refresh the terminal banner.
+- `:exit` or `:quit` - leave the REPL.
+
+Each natural-language prompt in the REPL invokes the same pipeline as a direct `python main.py` run, with your choices persisted in `.agent/.repl_history`.
 
 ## Architecture Overview
-- `main.py` orchestrates the run: loads chat memory, calls the LLM, prints the plan, manages confirmation, and writes files or runs commands.
-- `llm.py` loads environment variables (via `python-dotenv`) and creates the OpenAI client.
+- `main.py` orchestrates the run: loads chat memory, builds LLM requests, prints the plan, handles confirmation, and writes files or runs commands.
+- `llm.py` loads environment variables (via `python-dotenv`) and constructs the OpenAI client.
 - `intents.py` defines the structured intent schema (`edit_file`, `create_file`, `run_command`) and validates payloads returned by the model.
-- `planner.py` converts an intent into a sequence of step dictionaries that the CLI executes.
-- `fs_ops.py` handles safe file reads/writes and diff generation.
-- `patcher.py` asks the model to apply instructions to an entire file and returns the synthesized file content.
-- `memory.py` persists the ongoing conversation in `.agent/session.json` so previous prompts are available the next time you run the CLI.
-- `sandbox.py` chooses a sandbox provider and instantiates it. The default is a local process runner; an E2B integration is also provided.
-- `providers/local_sandbox.py` executes allowlisted commands locally under a configurable timeout.
-- `providers/e2b_sandbox.py` wraps the E2B cloud sandbox (requires `E2B_API_KEY`).
-- `executor.py` loads the command policy (`.agent/policy.json`), enforces the allowlist, and runs commands with subprocess.
-- `git_ops.py` performs the minimal git operations: initializing a repo, adding files, committing, or rolling back the last commit.
+- `planner.py` converts an intent into a sequence of step dictionaries the CLI executes.
+- `patcher.py` sends instructions plus the original file to the model and returns the synthesized full file content.
+- `fs_ops.py` performs safe file reads/writes and builds unified diffs for previews.
+- `memory.py` persists the ongoing conversation in `.agent/session.json` so follow-up prompts retain context.
+- `sandbox.py` picks a sandbox provider; local execution is default, with an E2B integration available.
+- `providers/local_sandbox.py` runs allowlisted commands locally under a configurable timeout.
+- `providers/e2b_sandbox.py` connects to the E2B cloud sandbox (requires `E2B_API_KEY`).
+- `executor.py` enforces the allowlist defined in `.agent/policy.json` before running commands.
+- `git_ops.py` handles repository bootstrapping, add/commit flows, and rollbacks.
+- `src/cherno/cli.py` implements the REPL experience, ASCII banner, and command toggles.
 
-Supporting files in `.agent/` hold runtime configuration:
-- `policy.json` – command allowlist and timeout. It is created on first run; edit it if you need to authorize additional binaries.
-- `sandbox.json` – chooses `local` or `e2b`. The file is bootstrapped automatically when missing.
+Supporting files under `.agent/` hold runtime configuration:
+- `policy.json` - command allowlist and timeout. Created on first run; edit it to authorize additional binaries.
+- `sandbox.json` - selects the sandbox provider (`local` or `e2b`). Bootstrapped automatically when missing.
+- `.repl_history` - prompt history for the REPL.
 
-## Usage Guide
-- **Create a file** – describe the new file in plain language (`"Create a CONTRIBUTING.md that..."`). The plan will preview the file before writing.
-- **Edit a file** – mention the file path and instructions (`"Update planner.py so show_diff runs before write_file"`). The agent reads the file, synthesizes an updated version, shows the diff, and waits for approval.
-- **Run a command** – request it explicitly (`"Run tests with pytest"`). The command must exist in the allowlist; otherwise the agent stops and reports the restriction.
-- **Iterative sessions** – the conversation history lets you run follow-up prompts without restating context. Delete `.agent/session.json` if you want a clean slate.
+## Usage Patterns
+- **Create files** - "Create `.github/workflows/tests.yml` that runs pytest on push." The plan shows the file before writing.
+- **Edit files** - "Update `planner.py` so `show_diff` comes before `write_file`." Cherno reads the file, synthesizes a replacement, and asks you to confirm the diff.
+- **Run commands** - "Run tests with pytest." Commands must be allowlisted; otherwise Cherno explains the restriction.
+- **Iterate** - Conversational memory means you can give short follow-ups. Delete `.agent/session.json` to restart from a clean slate.
+- **Stay dry** - Toggle dry-run in the REPL to preview diffs without touching disk or Git.
 
-Every time you approve a change, the agent writes the file and commits it with a message like `feat(agent): update <path>`. You can amend commits afterwards if you want custom messages.
+Approved changes are written to disk and committed with messages such as `feat(agent): update <path>`. You can amend afterwards if you need custom commit text.
 
-## Extending the Tool
-- Update `intents.py` and `planner.py` if you introduce new intent types.
-- Expand `.agent/policy.json` to approve additional commands or tighten timeouts.
-- Add new sandbox providers under `providers/` and switch by editing `.agent/sandbox.json`.
-- Enhance `patcher.py` or `fs_ops.py` if you need different transformation strategies (for example, operating on diffs instead of whole files).
+## Extending Cherno
+- Add new intent types by updating `intents.py` and `planner.py`.
+- Adjust the sandbox policy by editing `.agent/policy.json` (allowlist or timeout).
+- Introduce new sandbox providers under `providers/` and switch via `.agent/sandbox.json`.
+- Customize synthesis strategies by modifying `patcher.py` or adding new helper modules.
+- Package new REPL commands within `src/cherno/cli.py`.
 
 ## Troubleshooting
-- **Missing dependencies** – install the required packages listed above. If you change the project structure, consider adding a `requirements.txt`.
-- **Command blocked** – add the binary name to the `allowlist` in `.agent/policy.json` and rerun.
-- **E2B provider errors** – ensure `E2B_API_KEY` is set and the `e2b` (or `e2b_code_interpreter`) package is installed.
-- **Stale memory** – delete `.agent/session.json` to forget previous conversations.
+- **Missing dependencies** - install the project with `pip install -e .`. If you prefer pinned versions, add a `requirements.txt` or use a lockfile.
+- **Command blocked** - add the binary to the `allowlist` in `.agent/policy.json` and rerun.
+- **E2B provider errors** - ensure `E2B_API_KEY` is set and the `e2b` (or `e2b_code_interpreter`) package is installed.
+- **Stale memory** - delete `.agent/session.json` to forget previous conversations. Remove `.agent/.repl_history` to clear REPL history.
+- **Unexpected Git state** - use `:rollback` in the REPL or run `python main.py --rollback` to revert the latest commit.
 
-With these pieces in place, you can steer the coding agent entirely through natural language and stay in control of every change it proposes.
+With these pieces in place, you control every change Cherno proposes while steering it entirely through natural language.

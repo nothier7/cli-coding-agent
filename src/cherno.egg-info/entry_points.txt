@@ -1,0 +1,2 @@
+[console_scripts]
+cherno = cherno.cli:main
