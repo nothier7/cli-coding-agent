@@ -1,82 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>World Clocks</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
-      gap: 40px;
-    }
-    .clock {
-      background: white;
-      border-radius: 8px;
-      padding: 20px 30px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      text-align: center;
-      min-width: 220px;
-    }
-    .city {
-      font-size: 1.4rem;
-      margin-bottom: 10px;
-    }
-    .time {
-      font-size: 2rem;
-      letter-spacing: 1px;
-    }
-    .date {
-      font-size: 0.9rem;
-      color: #555;
-      margin-top: 8px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Current Time in New York City and Dakar</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f4f4f4;
+  }
+  h1 {
+    margin-bottom: 20px;
+  }
+  .city {
+    background: #fff;
+    padding: 20px 30px;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  .city h2 {
+    margin: 0 0 10px;
+  }
+  .time {
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+</style>
 </head>
 <body>
-  <div class="clock" data-timezone="America/New_York">
-    <div class="city">New York City</div>
-    <div class="time"></div>
-    <div class="date"></div>
+  <h1>Current Date and Time</h1>
+  <div class="city">
+    <h2>New York City</h2>
+    <div id="ny-time" class="time"></div>
   </div>
-  <div class="clock" data-timezone="Africa/Dakar">
-    <div class="city">Dakar</div>
-    <div class="time"></div>
-    <div class="date"></div>
+  <div class="city">
+    <h2>Dakar</h2>
+    <div id="dakar-time" class="time"></div>
   </div>
-  <script>
-    const optionsTime = {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    };
+<script>
+function updateTime() {
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
+  const nyElement = document.getElementById('ny-time');
+  const dakarElement = document.getElementById('dakar-time');
 
-    const optionsDate = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
+  const nyTime = new Date().toLocaleString('en-US', { ...options, timeZone: 'America/New_York' });
+  const dakarTime = new Date().toLocaleString('en-US', { ...options, timeZone: 'Africa/Dakar' });
 
-    function updateClocks() {
-      document.querySelectorAll('.clock').forEach(clock => {
-        const timeZone = clock.dataset.timezone;
-        const now = new Date();
+  nyElement.textContent = nyTime;
+  dakarElement.textContent = dakarTime;
+}
 
-        const timeFormatter = new Intl.DateTimeFormat('en-US', { ...optionsTime, timeZone });
-        const dateFormatter = new Intl.DateTimeFormat('en-US', { ...optionsDate, timeZone });
-
-        clock.querySelector('.time').textContent = timeFormatter.format(now);
-        clock.querySelector('.date').textContent = dateFormatter.format(now);
-      });
-    }
-
-    updateClocks();
-    setInterval(updateClocks, 1000);
-  </script>
+updateTime();
+setInterval(updateTime, 1000);
+</script>
 </body>
 </html>
