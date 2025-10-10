@@ -50,6 +50,10 @@
             <div class="city">Dakar</div>
             <div class="time" id="dakar-time"></div>
         </div>
+        <div class="clock">
+            <div class="city">Tokyo</div>
+            <div class="time" id="tokyo-time"></div>
+        </div>
     </div>
 
     <script>
@@ -66,9 +70,11 @@
 
             const newYork = new Date().toLocaleString('en-US', { ...options, timeZone: 'America/New_York' });
             const dakar = new Date().toLocaleString('en-US', { ...options, timeZone: 'Africa/Dakar' });
+            const tokyo = new Date().toLocaleString('en-US', { ...options, timeZone: 'Asia/Tokyo' });
 
             document.getElementById('ny-time').textContent = newYork;
             document.getElementById('dakar-time').textContent = dakar;
+            document.getElementById('tokyo-time').textContent = tokyo;
         }
 
         updateTimes();
