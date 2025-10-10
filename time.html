@@ -12,13 +12,17 @@
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    background: linear-gradient(-45deg, #d8f3dc, #b7e4c7, #95d5b2, #74c69d);
+    background: linear-gradient(-45deg, #d8f3dc, #b7e4c7, #95d5b2, #74c69d, #52b788, #40916c);
     background-size: 400% 400%;
     animation: gradientShift 18s ease infinite;
+    position: relative;
+    overflow: hidden;
   }
   h1 {
     margin-bottom: 20px;
     color: #1b4332;
+    position: relative;
+    z-index: 1;
   }
   .city {
     background: rgba(255, 255, 255, 0.85);
@@ -27,6 +31,8 @@
     border-radius: 8px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.1);
     text-align: center;
+    position: relative;
+    z-index: 1;
   }
   .city h2 {
     margin: 0 0 10px;
@@ -36,6 +42,70 @@
     font-size: 1.2em;
     font-weight: bold;
     color: #1b4332;
+  }
+  .floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .shape {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.65), rgba(104,201,155,0.35) 50%, rgba(40,111,82,0.25) 75%, rgba(27,67,50,0));
+    animation: floatUp 22s linear infinite;
+    opacity: 0;
+  }
+  .shape1 {
+    width: 180px;
+    height: 180px;
+    left: 12%;
+    bottom: -25%;
+    animation-duration: 24s;
+  }
+  .shape2 {
+    width: 120px;
+    height: 120px;
+    left: 45%;
+    bottom: -20%;
+    animation-duration: 18s;
+    animation-delay: -6s;
+  }
+  .shape3 {
+    width: 220px;
+    height: 220px;
+    left: 70%;
+    bottom: -30%;
+    animation-duration: 28s;
+    animation-delay: -12s;
+  }
+  .shape4 {
+    width: 140px;
+    height: 140px;
+    left: 25%;
+    bottom: -35%;
+    animation-duration: 20s;
+    animation-delay: -3s;
+  }
+  .shape5 {
+    width: 200px;
+    height: 200px;
+    left: 80%;
+    bottom: -40%;
+    animation-duration: 26s;
+    animation-delay: -10s;
+  }
+  .shape6 {
+    width: 100px;
+    height: 100px;
+    left: 5%;
+    bottom: -15%;
+    animation-duration: 16s;
+    animation-delay: -8s;
   }
   @keyframes gradientShift {
     0% {
@@ -48,9 +118,34 @@
       background-position: 0% 50%;
     }
   }
+  @keyframes floatUp {
+    0% {
+      transform: translateY(0) scale(0.8) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.6;
+    }
+    50% {
+      transform: translateY(-50vh) scale(1.05) rotate(120deg);
+      opacity: 0.75;
+    }
+    100% {
+      transform: translateY(-110vh) scale(1.2) rotate(320deg);
+      opacity: 0;
+    }
+  }
 </style>
 </head>
 <body>
+  <div class="floating-shapes">
+    <span class="shape shape1"></span>
+    <span class="shape shape2"></span>
+    <span class="shape shape3"></span>
+    <span class="shape shape4"></span>
+    <span class="shape shape5"></span>
+    <span class="shape shape6"></span>
+  </div>
   <h1>Current Date and Time</h1>
   <div class="city">
     <h2>New York City</h2>
