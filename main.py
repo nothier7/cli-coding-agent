@@ -2,7 +2,7 @@
 import sys
 import json
 from contextlib import contextmanager
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from sandbox import make_sandbox
 from llm import client, MODEL
 from intents import TOOL_DEFS, parse_intent
@@ -11,9 +11,9 @@ from planner import plan_from_intent
 from fs_ops import read_file_text, write_file_text, compute_unified_diff
 from patcher import synthesize_new_contents
 from git_ops import ensure_repo, commit_paths, rollback_last
-from executor import run_command
 from rich.console import Console
 from rich.json import JSON as RichJSON
+from command_safety import analyze_command, dry_run_required
 
 SYSTEM_PROMPT = (
     "You are a coding agent that ONLY returns a single structured intent "
@@ -61,6 +61,22 @@ def build_response_messages(system_prompt: str, turns: List[Dict[str, str]], use
         msgs.append(wrap_text(turn["role"], turn["content"]))
     msgs.append(wrap_text("user", user_prompt))
     return msgs
+
+
+def truncate_text(text: str, limit: int = 500) -> str:
+    if len(text) <= limit:
+        return text
+    remaining = len(text) - limit
+    return f"{text[:limit]}... ({remaining} more chars)"
+
+
+def build_assistant_summary(intent: Any, plan: List[Dict[str, Any]], actions: List[Dict[str, Any]]) -> str:
+    payload = {
+        "intent": intent.model_dump(),
+        "plan": plan,
+        "actions": actions,
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
 def extract_tool_result(resp: Any) -> Dict[str, Any]:
@@ -156,10 +172,6 @@ def main():
     print_rule("Parsed Intent")
     print_json(intent.model_dump())
 
-    # Persist the user turn (we'll store agent summaries later)
-    turns.append({"role": "user", "content": user_prompt})
-    save_memory(turns)
-
     print("\nStep 1 complete: parsed intent printed above (no execution performed).")
 
     # --- Step 3: Plan + Patch Synthesis + Git + Executor ---
@@ -170,12 +182,12 @@ def main():
     console.print(RichJSON(json.dumps(plan, indent=2)))
     sandbox = make_sandbox()
 
-
     ensure_repo(".")  # init git if needed
 
     confirm_needed = False
-    pending_write = None  # (path, contents)
+    pending_write: Optional[Tuple[str, str]] = None  # (path, contents)
     synthesized_cache = {}  # path -> synthesized new contents (for show_diff/write_file)
+    session_actions: List[Dict[str, Any]] = []
 
     for step in plan:
         kind = step["kind"]
@@ -193,11 +205,16 @@ def main():
             instructions = step.get("instructions", "")
             original = synthesized_cache.get(path + "::old", "")
             console.print(f"[yellow]Synthesizing patch for {path}...[/yellow]")
-            new_text = synthesize_new_contents(path, original, instructions)
+            new_text, validation_issues = synthesize_new_contents(path, original, instructions)
             if not new_text:
                 console.print(f"[red]Failed to synthesize new contents for {path}[/red]")
                 continue
             synthesized_cache[path + "::new"] = new_text
+            if validation_issues:
+                synthesized_cache[path + "::issues"] = validation_issues
+                console.print("[yellow]Validation warnings:[/yellow]")
+                for issue in validation_issues:
+                    console.print(f" - {issue}")
 
         elif kind == "show_diff":
             path = step["path"]
@@ -215,6 +232,11 @@ def main():
             title = f"Unified diff for {path}" if old else f"New file preview: {path}"
             console.rule(f"[bold magenta]{title}[/bold magenta]")
             console.print(diff or "(no changes)")
+            issues = synthesized_cache.get(path + "::issues", [])
+            if issues:
+                console.print("[yellow]Validation warnings (write requires explicit override):[/yellow]")
+                for issue in issues:
+                    console.print(f" - {issue}")
             confirm_needed = True
             pending_write = (path, proposed)
 
@@ -227,46 +249,156 @@ def main():
             args = step.get("args", [])
             console.rule("[bold cyan]Planned Command[/bold cyan]")
             console.print(f"{cmd} {' '.join(args)}")
-            ans = input("\nRun this command now? [y/N]: ").strip().lower()
-            if ans == "y":
+            analysis = analyze_command(cmd, args)
+            if analysis.reasons:
+                console.print("[yellow]Command safety review:[/yellow]")
+                for reason in analysis.reasons:
+                    console.print(f" - {reason}")
+
+            command_entry: Dict[str, Any] = {
+                "type": "run_command",
+                "command": cmd,
+                "args": args,
+                "risk": analysis.risk,
+                "reasons": analysis.reasons,
+            }
+            if analysis.risk == "block":
+                console.print("[red]Command contains disallowed shell control operators and was blocked.[/red]")
+                command_entry["decision"] = "blocked"
+                session_actions.append(command_entry)
+                continue
+
+            if analysis.risk == "caution" and dry_run_required(analysis):
+                console.print("[yellow]Dry-run enforced by AGENT_HIGH_RISK_DRY_RUN; command execution skipped.[/yellow]")
+                command_entry["decision"] = "dry-run"
+                session_actions.append(command_entry)
+                continue
+
+            if analysis.risk == "caution":
+                choice = input("\nHigh-risk command detected. Type 'run' to execute, 'dry' for a dry-run skip, or anything else to cancel: ").strip().lower()
+                if choice == "dry":
+                    console.print("Dry-run requested; command was not executed.")
+                    command_entry["decision"] = "dry-run"
+                    session_actions.append(command_entry)
+                    continue
+                if choice != "run":
+                    console.print("Skipped.")
+                    command_entry["decision"] = "skipped"
+                    session_actions.append(command_entry)
+                    continue
+                execute = True
+            else:
+                ans = input("\nRun this command now? [y/N]: ").strip().lower()
+                if ans != "y":
+                    console.print("Skipped.")
+                    command_entry["decision"] = "skipped"
+                    session_actions.append(command_entry)
+                    continue
+                execute = True
+
+            if execute:
                 try:
                     code, out, err = sandbox.run(cmd, args)
                     console.rule("[bold green]stdout[/bold green]"); print(out or "(empty)")
                     console.rule("[bold red]stderr[/bold red]"); print(err or "(empty)")
                     console.print(f"\nExit code: {code}")
+                    command_entry.update(
+                        exit_code=code,
+                        stdout=truncate_text(out or "", 500),
+                        stderr=truncate_text(err or "", 500),
+                        decision="executed",
+                    )
                 except Exception as ex:
                     console.print(f"[red]Command failed: {ex}[/red]")
+                    command_entry["decision"] = "error"
+                    command_entry["error"] = str(ex)
             else:
                 console.print("Skipped.")
+            session_actions.append(command_entry)
+
+        elif kind == "error":
+            message = step.get("message", "Planning error.")
+            console.print(f"[red][plan][/red] {message}")
+            session_actions.append(
+                {
+                    "type": "plan_error",
+                    "message": message,
+                    "path": step.get("path"),
+                }
+            )
+            break
 
         else:
             console.print(f"[yellow]Unknown step kind: {kind}[/yellow]")
 
     # Confirmation + write + commit
+    write_entry: Optional[Dict[str, Any]] = None
     if confirm_needed and pending_write:
-        ans = input("\nApply the file change(s)? [y/N]: ").strip().lower()
-        if ans == "y":
-            path, contents = pending_write
-            ok, err = write_file_text(path, contents)
-            if ok:
-                console.print(f"[green][write_file][/green] Wrote {path}")
-                try:
-                    commit_paths([path], f"feat(agent): update {path}")
-                    console.print("[green]Committed to git[/green]")
-                except Exception as ex:
-                    console.print(f"[yellow]Write succeeded but commit failed: {ex}[/yellow]")
+        path, contents = pending_write
+        issues = synthesized_cache.get(path + "::issues", [])
+        if issues:
+            console.print("[yellow]Validation warnings detected for this file:[/yellow]")
+            for issue in issues:
+                console.print(f" - {issue}")
+            ans = input("\nType 'force' to write despite validation issues, or anything else to cancel: ").strip().lower()
+            if ans != "force":
+                console.print("Aborted due to validation issues (no files changed).")
+                write_entry = {"type": "write_file", "path": path, "applied": False, "reason": "validation_failed"}
             else:
-                console.print(f"[red][write_file][/red] {err}")
-                # optional: rollback if you attempted multiple writes
+                console.print("[yellow]Proceeding despite validation warnings.[/yellow]")
+                ok, err = write_file_text(path, contents)
+                if ok:
+                    console.print(f"[green][write_file][/green] Wrote {path}")
+                    write_entry = {"type": "write_file", "path": path, "applied": True, "override_validation": True}
+                    try:
+                        commit_paths([path], f"feat(agent): update {path}")
+                        console.print("[green]Committed to git[/green]")
+                        write_entry["committed"] = True
+                    except Exception as ex:
+                        console.print(f"[yellow]Write succeeded but commit failed: {ex}[/yellow]")
+                        write_entry["committed"] = False
+                        write_entry["commit_error"] = str(ex)
+                else:
+                    console.print(f"[red][write_file][/red] {err}")
+                    write_entry = {"type": "write_file", "path": path, "applied": False, "error": err}
+            if write_entry:
+                write_entry["validation_issues"] = issues
         else:
-            console.print("Aborted (no files changed).")
-        try:
-            sandbox.close()
-        except Exception:
-            pass
+            ans = input("\nApply the file change(s)? [y/N]: ").strip().lower()
+            if ans == "y":
+                ok, err = write_file_text(path, contents)
+                if ok:
+                    console.print(f"[green][write_file][/green] Wrote {path}")
+                    write_entry = {"type": "write_file", "path": path, "applied": True}
+                    try:
+                        commit_paths([path], f"feat(agent): update {path}")
+                        console.print("[green]Committed to git[/green]")
+                        write_entry["committed"] = True
+                    except Exception as ex:
+                        console.print(f"[yellow]Write succeeded but commit failed: {ex}[/yellow]")
+                        write_entry["committed"] = False
+                        write_entry["commit_error"] = str(ex)
+                else:
+                    console.print(f"[red][write_file][/red] {err}")
+                    write_entry = {"type": "write_file", "path": path, "applied": False, "error": err}
+            else:
+                console.print("Aborted (no files changed).")
+                write_entry = {"type": "write_file", "path": path, "applied": False, "reason": "user_declined"}
 
+    if write_entry:
+        session_actions.append(write_entry)
+
+    try:
+        sandbox.close()
+    except Exception:
+        pass
 
     console.print("\n[dim]Step 3 complete: synthesis if needed, diff preview, git commit, and safe command run.[/dim]")
+
+    turns.append({"role": "user", "content": user_prompt})
+    assistant_summary = build_assistant_summary(intent, plan, session_actions)
+    turns.append({"role": "assistant", "content": assistant_summary})
+    save_memory(turns)
 
 
 if __name__ == "__main__":

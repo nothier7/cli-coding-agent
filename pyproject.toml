@@ -16,6 +16,11 @@ dependencies = [
 ]
 readme = "README.md"
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+
 [project.scripts]
 cherno = "cherno.cli:main"
 
