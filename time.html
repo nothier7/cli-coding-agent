@@ -12,25 +12,41 @@
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    background-color: #f4f4f4;
+    background: linear-gradient(-45deg, #d8f3dc, #b7e4c7, #95d5b2, #74c69d);
+    background-size: 400% 400%;
+    animation: gradientShift 18s ease infinite;
   }
   h1 {
     margin-bottom: 20px;
+    color: #1b4332;
   }
   .city {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.85);
     padding: 20px 30px;
     margin: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
     text-align: center;
   }
   .city h2 {
     margin: 0 0 10px;
+    color: #2d6a4f;
   }
   .time {
     font-size: 1.2em;
     font-weight: bold;
+    color: #1b4332;
+  }
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
   }
 </style>
 </head>
