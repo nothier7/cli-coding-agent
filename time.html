@@ -43,6 +43,12 @@
       font-size: 2em;
       font-variant-numeric: tabular-nums;
     }
+
+    .date-display {
+      font-size: 1em;
+      margin-bottom: 8px;
+      color: #555555;
+    }
   </style>
 </head>
 <body>
@@ -60,26 +66,42 @@
       <div class="city-name">Tokyo</div>
       <div id="tokyo-time" class="time-display">--:--:--</div>
     </div>
+    <div class="city-clock">
+      <div class="city-name">Paris</div>
+      <div id="paris-date" class="date-display">-- -- --</div>
+      <div id="paris-time" class="time-display">--:--:--</div>
+    </div>
   </div>
 
   <script>
     function updateTimes() {
       const now = new Date();
-      const options = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
 
       document.getElementById('ny-time').textContent = now.toLocaleTimeString('en-US', {
-        ...options,
+        ...timeOptions,
         timeZone: 'America/New_York'
       });
 
       document.getElementById('dakar-time').textContent = now.toLocaleTimeString('en-US', {
-        ...options,
+        ...timeOptions,
         timeZone: 'Africa/Dakar'
       });
 
       document.getElementById('tokyo-time').textContent = now.toLocaleTimeString('en-US', {
-        ...options,
+        ...timeOptions,
         timeZone: 'Asia/Tokyo'
+      });
+
+      document.getElementById('paris-date').textContent = now.toLocaleDateString('en-US', {
+        ...dateOptions,
+        timeZone: 'Europe/Paris'
+      });
+
+      document.getElementById('paris-time').textContent = now.toLocaleTimeString('en-US', {
+        ...timeOptions,
+        timeZone: 'Europe/Paris'
       });
     }
 
