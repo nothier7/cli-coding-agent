@@ -7,7 +7,9 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #ece9e6, #ffffff);
+            background: linear-gradient(-45deg, #0f9b0f, #5cdb94, #95e06c, #1f8d49);
+            background-size: 300% 300%;
+            animation: greenGlow 18s ease infinite;
             color: #333;
             display: flex;
             flex-direction: column;
@@ -26,7 +28,7 @@
         .clock {
             padding: 1rem 2rem;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
         .city {
@@ -36,6 +38,17 @@
         .time {
             font-size: 1.5rem;
             margin-top: 0.5rem;
+        }
+        @keyframes greenGlow {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
         }
     </style>
 </head>
