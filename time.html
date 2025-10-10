@@ -1,112 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>World Clock</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-
-    h1 {
-      margin: 0 0 20px;
-    }
-
-    .clock-container {
-      display: flex;
-      gap: 20px;
-    }
-
-    .city-clock {
-      background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      padding: 20px 30px;
-      text-align: center;
-      min-width: 200px;
-    }
-
-    .city-name {
-      font-size: 1.2em;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    .time-display {
-      font-size: 2em;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .date-display {
-      font-size: 1em;
-      margin-bottom: 8px;
-      color: #555555;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>World Clock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ece9e6, #ffffff);
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            margin-bottom: 1rem;
+        }
+        .clock-container {
+            display: grid;
+            gap: 1rem;
+        }
+        .clock {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .city {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        .time {
+            font-size: 1.5rem;
+            margin-top: 0.5rem;
+        }
+    </style>
 </head>
 <body>
-  <h1>Current Time</h1>
-  <div class="clock-container">
-    <div class="city-clock">
-      <div class="city-name">New York City</div>
-      <div id="ny-time" class="time-display">--:--:--</div>
+    <h1>Current Date &amp; Time</h1>
+    <div class="clock-container">
+        <div class="clock">
+            <div class="city">New York City</div>
+            <div class="time" id="ny-time"></div>
+        </div>
+        <div class="clock">
+            <div class="city">Dakar</div>
+            <div class="time" id="dakar-time"></div>
+        </div>
     </div>
-    <div class="city-clock">
-      <div class="city-name">Dakar</div>
-      <div id="dakar-time" class="time-display">--:--:--</div>
-    </div>
-    <div class="city-clock">
-      <div class="city-name">Tokyo</div>
-      <div id="tokyo-time" class="time-display">--:--:--</div>
-    </div>
-    <div class="city-clock">
-      <div class="city-name">Paris</div>
-      <div id="paris-date" class="date-display">-- -- --</div>
-      <div id="paris-time" class="time-display">--:--:--</div>
-    </div>
-  </div>
 
-  <script>
-    function updateTimes() {
-      const now = new Date();
-      const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
-      const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+    <script>
+        function updateTimes() {
+            const options = {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
 
-      document.getElementById('ny-time').textContent = now.toLocaleTimeString('en-US', {
-        ...timeOptions,
-        timeZone: 'America/New_York'
-      });
+            const newYork = new Date().toLocaleString('en-US', { ...options, timeZone: 'America/New_York' });
+            const dakar = new Date().toLocaleString('en-US', { ...options, timeZone: 'Africa/Dakar' });
 
-      document.getElementById('dakar-time').textContent = now.toLocaleTimeString('en-US', {
-        ...timeOptions,
-        timeZone: 'Africa/Dakar'
-      });
+            document.getElementById('ny-time').textContent = newYork;
+            document.getElementById('dakar-time').textContent = dakar;
+        }
 
-      document.getElementById('tokyo-time').textContent = now.toLocaleTimeString('en-US', {
-        ...timeOptions,
-        timeZone: 'Asia/Tokyo'
-      });
-
-      document.getElementById('paris-date').textContent = now.toLocaleDateString('en-US', {
-        ...dateOptions,
-        timeZone: 'Europe/Paris'
-      });
-
-      document.getElementById('paris-time').textContent = now.toLocaleTimeString('en-US', {
-        ...timeOptions,
-        timeZone: 'Europe/Paris'
-      });
-    }
-
-    updateTimes();
-    setInterval(updateTimes, 1000);
-  </script>
+        updateTimes();
+        setInterval(updateTimes, 1000);
+    </script>
 </body>
 </html>
